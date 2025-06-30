@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		A3DE62D12E12EEEE00C9B256 /* Books in Resources */ = {isa = PBXBuildFile; fileRef = A3DE62D02E12EEEE00C9B256 /* Books */; };
+		A3DE62F72E132D7700C9B256 /* light-switch.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = A3DE62F62E132D7700C9B256 /* light-switch.mp3 */; };
+		A3DE62F92E1330D000C9B256 /* lofi_track.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = A3DE62F82E1330D000C9B256 /* lofi_track.mp3 */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -32,6 +34,8 @@
 		A33299ED2E10471D00689485 /* reeedyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = reeedyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A33299F72E10471D00689485 /* reeedyUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = reeedyUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A3DE62D02E12EEEE00C9B256 /* Books */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Books; sourceTree = "<group>"; };
+		A3DE62F62E132D7700C9B256 /* light-switch.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = "light-switch.mp3"; sourceTree = "<group>"; };
+		A3DE62F82E1330D000C9B256 /* lofi_track.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = lofi_track.mp3; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -85,12 +89,14 @@
 		A33299D52E10471B00689485 = {
 			isa = PBXGroup;
 			children = (
+				A3DE62F62E132D7700C9B256 /* light-switch.mp3 */,
 				A3DE62D02E12EEEE00C9B256 /* Books */,
 				A33299E02E10471B00689485 /* reeedy */,
 				A33299F02E10471D00689485 /* reeedyTests */,
 				A33299FA2E10471D00689485 /* reeedyUITests */,
 				A33299DF2E10471B00689485 /* Products */,
 				A3DE62CC2E12EEDF00C9B256 /* Books */,
+				A3DE62F82E1330D000C9B256 /* lofi_track.mp3 */,
 			);
 			sourceTree = "<group>";
 		};
@@ -225,7 +231,9 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A3DE62F92E1330D000C9B256 /* lofi_track.mp3 in Resources */,
 				A3DE62D12E12EEEE00C9B256 /* Books in Resources */,
+				A3DE62F72E132D7700C9B256 /* light-switch.mp3 in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -423,6 +431,28 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/reeedy/gentle_setup/venv/lib/python3.13/site-packages/bcrypt",
+					"$(PROJECT_DIR)/reeedy/gentle_setup/venv/lib/python3.13/site-packages/cryptography/hazmat/bindings",
+					"$(PROJECT_DIR)/reeedy/gentle_setup/venv/lib/python3.9/site-packages/numpy/_core/lib",
+					"$(PROJECT_DIR)/reeedy/gentle_setup/venv/lib/python3.9/site-packages/numpy/random/lib",
+					"$(PROJECT_DIR)/reeedy/gentle_setup/venv/lib/python3.9/site-packages/torch/lib",
+					"$(PROJECT_DIR)/reeedy/gentle_setup/venv/lib/python3.9/site-packages/PIL/.dylibs",
+					"$(PROJECT_DIR)/reeedy/gentle_setup/venv/lib/python3.9/site-packages/scipy/.dylibs",
+					"$(PROJECT_DIR)/reeedy/gentle_setup/venv/lib/python3.9/site-packages/_soundfile_data",
+					"$(PROJECT_DIR)/reeedy/gentle_setup/venv/lib/python3.9/site-packages/av/.dylibs",
+					"$(PROJECT_DIR)/reeedy/gentle_setup/venv/lib/python3.9/site-packages/torchaudio/.dylibs",
+					"$(PROJECT_DIR)/reeedy/gentle_setup/venv/lib/python3.9/site-packages/ctranslate2/.dylibs",
+					"$(PROJECT_DIR)/reeedy/gentle_setup/venv/lib/python3.9/site-packages/google/_upb",
+					"$(PROJECT_DIR)/reeedy/gentle_setup/venv/lib/python3.9/site-packages/torchaudio/lib",
+					"$(PROJECT_DIR)/reeedy/gentle_setup/venv/lib/python3.9/site-packages/safetensors",
+					"$(PROJECT_DIR)/reeedy/gentle_setup/venv/lib/python3.9/site-packages/onnxruntime/capi",
+					"$(PROJECT_DIR)/reeedy/gentle_setup/venv/lib/python3.9/site-packages/torio/lib",
+					"$(PROJECT_DIR)/reeedy/gentle_setup/venv/lib/python3.9/site-packages/tokenizers",
+					"$(PROJECT_DIR)/reeedy/gentle_setup/venv/lib/python3.9/site-packages/sklearn/.dylibs",
+					"$(PROJECT_DIR)/reeedy/gentle_setup/venv/lib/python3.9/site-packages/hf_xet",
+				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = kiwiinit.reeedy;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -450,6 +480,28 @@
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/reeedy/gentle_setup/venv/lib/python3.13/site-packages/bcrypt",
+					"$(PROJECT_DIR)/reeedy/gentle_setup/venv/lib/python3.13/site-packages/cryptography/hazmat/bindings",
+					"$(PROJECT_DIR)/reeedy/gentle_setup/venv/lib/python3.9/site-packages/numpy/_core/lib",
+					"$(PROJECT_DIR)/reeedy/gentle_setup/venv/lib/python3.9/site-packages/numpy/random/lib",
+					"$(PROJECT_DIR)/reeedy/gentle_setup/venv/lib/python3.9/site-packages/torch/lib",
+					"$(PROJECT_DIR)/reeedy/gentle_setup/venv/lib/python3.9/site-packages/PIL/.dylibs",
+					"$(PROJECT_DIR)/reeedy/gentle_setup/venv/lib/python3.9/site-packages/scipy/.dylibs",
+					"$(PROJECT_DIR)/reeedy/gentle_setup/venv/lib/python3.9/site-packages/_soundfile_data",
+					"$(PROJECT_DIR)/reeedy/gentle_setup/venv/lib/python3.9/site-packages/av/.dylibs",
+					"$(PROJECT_DIR)/reeedy/gentle_setup/venv/lib/python3.9/site-packages/torchaudio/.dylibs",
+					"$(PROJECT_DIR)/reeedy/gentle_setup/venv/lib/python3.9/site-packages/ctranslate2/.dylibs",
+					"$(PROJECT_DIR)/reeedy/gentle_setup/venv/lib/python3.9/site-packages/google/_upb",
+					"$(PROJECT_DIR)/reeedy/gentle_setup/venv/lib/python3.9/site-packages/torchaudio/lib",
+					"$(PROJECT_DIR)/reeedy/gentle_setup/venv/lib/python3.9/site-packages/safetensors",
+					"$(PROJECT_DIR)/reeedy/gentle_setup/venv/lib/python3.9/site-packages/onnxruntime/capi",
+					"$(PROJECT_DIR)/reeedy/gentle_setup/venv/lib/python3.9/site-packages/torio/lib",
+					"$(PROJECT_DIR)/reeedy/gentle_setup/venv/lib/python3.9/site-packages/tokenizers",
+					"$(PROJECT_DIR)/reeedy/gentle_setup/venv/lib/python3.9/site-packages/sklearn/.dylibs",
+					"$(PROJECT_DIR)/reeedy/gentle_setup/venv/lib/python3.9/site-packages/hf_xet",
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = kiwiinit.reeedy;
