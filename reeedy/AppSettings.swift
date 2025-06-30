@@ -7,4 +7,7 @@ class AppSettings: ObservableObject {
     @AppStorage("hapticFeedbackEnabled") var hapticFeedbackEnabled: Bool = true
     @AppStorage("drainingCupEnabled") var drainingCupEnabled: Bool = true
     @AppStorage("semanticSplittingEnabled") var semanticSplittingEnabled: Bool = true
+    @AppStorage("lofiMusicEnabled") var lofiMusicEnabled: Bool = false
+    @AppStorage("lofiMusicPlaybackTime") var lofiMusicPlaybackTime: Double = 0.0
+    @AppStorage("audioReadingEnabled") var audioReadingEnabled: Bool = false
 }

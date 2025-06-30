@@ -1,4 +1,5 @@
 import SwiftUI
+import AVFoundation
 
 // Define our custom colors
 extension Color {
@@ -13,6 +14,11 @@ struct ContentView: View {
     
     let book: Book
     let chapter: Chapter
+
+    public init(book: Book, chapter: Chapter) {
+        self.book = book
+        self.chapter = chapter
+    }
     
     @State private var words: [RhythmicWord] = []
     @State private var wordTimings: [WordTiming] = []
@@ -24,6 +30,10 @@ struct ContentView: View {
     
     @State private var readingTask: Task<Void, Error>?
     private let feedbackGenerator = UIImpactFeedbackGenerator(style: .light)
+    @State private var lofiPlayer: AVAudioPlayer?
+    @State private var isLofiPlaying: Bool = false
+    @State private var chapterAudioPlayer: AVAudioPlayer?
+    @State private var audioProgressTimer: Timer? = nil
 
     private var backgroundColor: Color {
         colorScheme == .dark ? .black : .comfortableWhite
@@ -36,6 +46,19 @@ struct ContentView: View {
         guard !words.isEmpty else { return 0 }
         return CGFloat(currentWordIndex) / CGFloat(words.count - 1)
     }
+    
+    private var currentWordText: String {
+        if appSettings.audioReadingEnabled, let timedWords = chapter.timedWords, currentWordIndex < timedWords.count {
+            return timedWords[currentWordIndex].word
+        }
+        if currentWordIndex < wordTimings.count {
+            return wordTimings[currentWordIndex].word
+        }
+        if currentWordIndex < words.count {
+            return words[currentWordIndex].word
+        }
+        return ""
+    }
 
     var body: some View {
         ZStack {
@@ -44,8 +67,8 @@ struct ContentView: View {
             VStack(spacing: 20) {
                 Spacer()
 
-                if !wordTimings.isEmpty {
-                    Text(wordTimings[currentWordIndex].word)
+                if !words.isEmpty {
+                    Text(currentWordText)
                         .font(.system(size: CGFloat(appSettings.fontSize), weight: .regular, design: .rounded))
                         .foregroundColor(foregroundColor)
                         .lineSpacing(CGFloat(appSettings.fontSize) * 0.4)
@@ -71,11 +94,27 @@ struct ContentView: View {
                             .foregroundColor(.secondary)
                     }
                     
+                    
+
                     Button(action: {
                         stopReading()
                         showWordMap = true
                     }) {
                         Image(systemName: "text.quote")
+                            .font(.title2)
+                            .foregroundColor(.secondary)
+                    }
+
+                    Spacer()
+
+                    Button(action: {
+                        if lofiPlayer?.isPlaying == true {
+                            stopLofiMusic()
+                        } else {
+                            playLofiMusic()
+                        }
+                    }) {
+                        Image(systemName: isLofiPlaying ? "speaker.wave.2.fill" : "speaker.slash.fill")
                             .font(.title2)
                             .foregroundColor(.secondary)
                     }
@@ -98,6 +137,7 @@ struct ContentView: View {
         }
         .onAppear {
             setupChapterContent()
+            setupLofiPlayer()
         }
         .onDisappear {
             stopReading()
@@ -121,35 +161,89 @@ struct ContentView: View {
         if let lastReadIndex = chapter.lastReadWordIndex {
             currentWordIndex = lastReadIndex
         }
+
+        // Setup chapter audio player
+        let audioFileName = book.title.replacingOccurrences(of: " ", with: "_").replacingOccurrences(of: ".", with: "")
+        if let audioURL = Bundle.main.url(forResource: audioFileName, withExtension: "mp3") {
+            do {
+                chapterAudioPlayer = try AVAudioPlayer(contentsOf: audioURL)
+                chapterAudioPlayer?.prepareToPlay()
+            } catch {
+                print("Error loading chapter audio: \(error.localizedDescription)")
+            }
+        }
     }
 
     func startReading() {
         stopReading()
         isReading = true
 
-        readingTask = Task {
-            while isReading && currentWordIndex < wordTimings.count - 1 {
-                let interval = wordTimings[currentWordIndex].time
+        if appSettings.audioReadingEnabled, let timedWords = chapter.timedWords {
+            // Audio Reading Mode: Audio drives word transitions
+            guard currentWordIndex < timedWords.count else { return }
+            let word = timedWords[currentWordIndex]
 
-                if appSettings.semanticSplittingEnabled {
-                    timerProgress = 0.0
-                    withAnimation(.linear(duration: interval)) {
-                        timerProgress = 1.0
+            chapterAudioPlayer?.currentTime = word.start
+            chapterAudioPlayer?.play()
+
+            audioProgressTimer?.invalidate()
+            audioProgressTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { _ in
+                guard let player = chapterAudioPlayer, player.isPlaying else { return }
+
+                // Update currentWordIndex based on audio progress
+                if let timedWords = chapter.timedWords {
+                    let newIndex = timedWords.firstIndex { word in
+                        player.currentTime >= word.start && player.currentTime < word.end
+                    }
+                    if let actualNewIndex = newIndex, actualNewIndex != currentWordIndex {
+                        currentWordIndex = actualNewIndex
+                    } else if newIndex == nil && currentWordIndex < timedWords.count - 1 && player.currentTime >= timedWords[currentWordIndex].end {
+                        // If we are between words and have passed the current word's end, advance to the next
+                        currentWordIndex += 1
                     }
                 }
 
-                try await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
-                if !isReading { break }
+                // Update timerProgress for the current word
+                if currentWordIndex < chapter.timedWords?.count ?? 0 {
+                    let currentTimedWord = chapter.timedWords![currentWordIndex]
+                    let progressInWord = (player.currentTime - currentTimedWord.start) / (currentTimedWord.end - currentTimedWord.start)
+                    timerProgress = CGFloat(max(0, min(1, progressInWord)))
+                }
+            } // Missing brace was here
 
-                withAnimation {
-                    currentWordIndex += 1
-                    if appSettings.hapticFeedbackEnabled {
-                        feedbackGenerator.impactOccurred()
+        } else {
+            // WPM Reading Mode: WPM drives word transitions
+            readingTask = Task {
+                while isReading && currentWordIndex < words.count - 1 {
+                    var duration: TimeInterval = 0
+
+                    if currentWordIndex < wordTimings.count {
+                        duration = wordTimings[currentWordIndex].time
+                    } else {
+                        duration = 60.0 / appSettings.wordsPerMinute // Fallback
+                    }
+
+                    if appSettings.semanticSplittingEnabled {
+                        timerProgress = 0.0
+                        withAnimation(.linear(duration: duration)) {
+                            timerProgress = 1.0
+                        }
+                    }
+
+                    try await Task.sleep(nanoseconds: UInt64(duration * 1_000_000_000))
+                    if !isReading { break }
+
+                    withAnimation {
+                        currentWordIndex += 1
+                        if appSettings.hapticFeedbackEnabled {
+                            feedbackGenerator.impactOccurred()
+                        }
                     }
                 }
-            }
-            if currentWordIndex >= wordTimings.count - 1 {
-                isReading = false
+                if currentWordIndex >= words.count - 1 {
+                    isReading = false
+                }
+                chapterAudioPlayer?.stop() // Stop audio when reading finishes
             }
         }
     }
@@ -158,9 +252,13 @@ struct ContentView: View {
         isReading = false
         readingTask?.cancel()
         readingTask = nil
+        audioProgressTimer?.invalidate()
+        audioProgressTimer = nil
         withAnimation(.easeInOut(duration: 0.2)) {
             timerProgress = 0.0
         }
+        lofiPlayer?.pause()
+        chapterAudioPlayer?.pause()
     }
     
     private func saveProgress() {
@@ -177,6 +275,29 @@ struct ContentView: View {
         guard words.count > 1 else { return 0 }
         return totalWidth * CGFloat(index) / CGFloat(words.count - 1)
     }
+
+    private func setupLofiPlayer() {
+        guard let url = Bundle.main.url(forResource: "lofi_track", withExtension: "mp3") else { return }
+        do {
+            lofiPlayer = try AVAudioPlayer(contentsOf: url)
+            lofiPlayer?.numberOfLoops = -1 // Loop indefinitely
+            lofiPlayer?.prepareToPlay()
+            lofiPlayer?.currentTime = appSettings.lofiMusicPlaybackTime // Load saved time
+        } catch {
+            print("Error loading lofi track: \(error.localizedDescription)")
+        }
+    }
+
+    private func playLofiMusic() {
+        lofiPlayer?.play()
+        isLofiPlaying = true
+    }
+
+    private func stopLofiMusic() {
+        lofiPlayer?.pause()
+        isLofiPlaying = false
+        appSettings.lofiMusicPlaybackTime = lofiPlayer?.currentTime ?? 0.0 // Save current time
+    }
 }
 
 #Preview {
@@ -184,9 +305,10 @@ struct ContentView: View {
     let book = books.first!
     let chapter = BookLoader.loadChapter(for: book, title: book.chapterTitles.first!, semanticSplittingEnabled: false)
     
-    return NavigationView {
+    NavigationView {
         ContentView(book: book, chapter: chapter)
     }
     .environmentObject(AppSettings())
     .environmentObject(UserProfileManager())
 }
+

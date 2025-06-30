@@ -29,10 +29,17 @@ struct RhythmicWord {
     var speedModifier: Double
 }
 
+struct TimedWord: Decodable {
+    let word: String
+    let start: Double
+    let end: Double
+}
+
 // Represents a chapter, now containing its title and the loaded words.
 struct Chapter: Identifiable {
     let id = UUID()
     var title: String
     var words: [RhythmicWord]
+    var timedWords: [TimedWord]? = nil // New property for timed words
     var lastReadWordIndex: Int? = nil
 }
