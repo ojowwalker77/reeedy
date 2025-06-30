@@ -35,12 +35,6 @@ struct SettingsView: View {
                     Toggle(isOn: $settings.drainingCupEnabled) {
                         Label("Draining Cup Timer", systemImage: "hourglass")
                     }
-                    Toggle(isOn: $settings.lofiMusicEnabled) {
-                        Label("Lofi Music", systemImage: "music.note")
-                    }
-                    Toggle(isOn: $settings.audioReadingEnabled) {
-                        Label("Audio Reading", systemImage: "speaker.wave.3")
-                    }
                 }
 
                 

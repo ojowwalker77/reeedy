@@ -21,7 +21,6 @@ struct ContentView: View {
     }
     
     @State private var words: [RhythmicWord] = []
-    @State private var wordTimings: [WordTiming] = []
     @State private var currentWordIndex = 0
     @State private var isReading = false
     @State private var showWordMap = false
@@ -30,8 +29,6 @@ struct ContentView: View {
     
     @State private var readingTask: Task<Void, Error>?
     private let feedbackGenerator = UIImpactFeedbackGenerator(style: .light)
-    @State private var lofiPlayer: AVAudioPlayer?
-    @State private var isLofiPlaying: Bool = false
     @State private var chapterAudioPlayer: AVAudioPlayer?
     @State private var audioProgressTimer: Timer? = nil
 
@@ -48,13 +45,9 @@ struct ContentView: View {
     }
     
     private var currentWordText: String {
-        if appSettings.audioReadingEnabled, let timedWords = chapter.timedWords, currentWordIndex < timedWords.count {
+        if let timedWords = chapter.timedWords, currentWordIndex < timedWords.count {
             return timedWords[currentWordIndex].word
-        }
-        if currentWordIndex < wordTimings.count {
-            return wordTimings[currentWordIndex].word
-        }
-        if currentWordIndex < words.count {
+        } else if currentWordIndex < words.count {
             return words[currentWordIndex].word
         }
         return ""
@@ -72,7 +65,7 @@ struct ContentView: View {
                         .font(.system(size: CGFloat(appSettings.fontSize), weight: .regular, design: .rounded))
                         .foregroundColor(foregroundColor)
                         .lineSpacing(CGFloat(appSettings.fontSize) * 0.4)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(maxWidth: .infinity, alignment: .center)
                         .id("word_\(currentWordIndex)")
                         .transition(.opacity.animation(.easeInOut(duration: 0.15)))
                 }
@@ -84,18 +77,7 @@ struct ContentView: View {
             
             VStack(spacing: 20) {
                 Spacer()
-                HStack(spacing: 20) {
-                    Button(action: {
-                        isReading.toggle()
-                        if isReading { startReading() } else { stopReading() }
-                    }) {
-                        Image(systemName: isReading ? "pause.circle" : "play.circle")
-                            .font(.largeTitle)
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    
-
+                HStack {
                     Button(action: {
                         stopReading()
                         showWordMap = true
@@ -108,13 +90,24 @@ struct ContentView: View {
                     Spacer()
 
                     Button(action: {
-                        if lofiPlayer?.isPlaying == true {
-                            stopLofiMusic()
+                        isReading.toggle()
+                        if isReading { startReading() } else { stopReading() }
+                    }) {
+                        Image(systemName: isReading ? "pause.circle" : "play.circle")
+                            .font(.largeTitle)
+                            .foregroundColor(.secondary)
+                    }
+
+                    Spacer()
+
+                    Button(action: {
+                        if chapterAudioPlayer?.volume == 0.0 {
+                            chapterAudioPlayer?.volume = 1.0 // Unmute
                         } else {
-                            playLofiMusic()
+                            chapterAudioPlayer?.volume = 0.0 // Mute
                         }
                     }) {
-                        Image(systemName: isLofiPlaying ? "speaker.wave.2.fill" : "speaker.slash.fill")
+                        Image(systemName: (chapterAudioPlayer?.volume ?? 1.0) > 0.0 ? "speaker.wave.2.fill" : "speaker.slash.fill")
                             .font(.title2)
                             .foregroundColor(.secondary)
                     }
@@ -137,7 +130,6 @@ struct ContentView: View {
         }
         .onAppear {
             setupChapterContent()
-            setupLofiPlayer()
         }
         .onDisappear {
             stopReading()
@@ -157,7 +149,6 @@ struct ContentView: View {
 
     func setupChapterContent() {
         words = chapter.words
-        wordTimings = WordTimeCalculator.calculateWordTimes(for: words, wpm: appSettings.wordsPerMinute)
         if let lastReadIndex = chapter.lastReadWordIndex {
             currentWordIndex = lastReadIndex
         }
@@ -178,72 +169,41 @@ struct ContentView: View {
         stopReading()
         isReading = true
 
-        if appSettings.audioReadingEnabled, let timedWords = chapter.timedWords {
-            // Audio Reading Mode: Audio drives word transitions
-            guard currentWordIndex < timedWords.count else { return }
-            let word = timedWords[currentWordIndex]
+        // Audio Reading Mode: Audio drives word transitions
+        guard let timedWords = chapter.timedWords, currentWordIndex < timedWords.count else { return }
+        let word = timedWords[currentWordIndex]
 
-            chapterAudioPlayer?.currentTime = word.start
-            chapterAudioPlayer?.play()
+        chapterAudioPlayer?.currentTime = word.start
+        chapterAudioPlayer?.play()
 
-            audioProgressTimer?.invalidate()
-            audioProgressTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { _ in
-                guard let player = chapterAudioPlayer, player.isPlaying else { return }
+        audioProgressTimer?.invalidate()
+        audioProgressTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { _ in
+            guard let player = chapterAudioPlayer, player.isPlaying else { return }
 
-                // Update currentWordIndex based on audio progress
-                if let timedWords = chapter.timedWords {
-                    let newIndex = timedWords.firstIndex { word in
-                        player.currentTime >= word.start && player.currentTime < word.end
-                    }
-                    if let actualNewIndex = newIndex, actualNewIndex != currentWordIndex {
+            // Update currentWordIndex based on audio progress
+            if let timedWords = chapter.timedWords {
+                let newIndex = timedWords.firstIndex { word in
+                    player.currentTime >= word.start && player.currentTime < word.end
+                }
+                if let actualNewIndex = newIndex, actualNewIndex != currentWordIndex {
                         currentWordIndex = actualNewIndex
+                        if appSettings.hapticFeedbackEnabled {
+                            feedbackGenerator.impactOccurred()
+                        }
                     } else if newIndex == nil && currentWordIndex < timedWords.count - 1 && player.currentTime >= timedWords[currentWordIndex].end {
                         // If we are between words and have passed the current word's end, advance to the next
-                        currentWordIndex += 1
-                    }
-                }
-
-                // Update timerProgress for the current word
-                if currentWordIndex < chapter.timedWords?.count ?? 0 {
-                    let currentTimedWord = chapter.timedWords![currentWordIndex]
-                    let progressInWord = (player.currentTime - currentTimedWord.start) / (currentTimedWord.end - currentTimedWord.start)
-                    timerProgress = CGFloat(max(0, min(1, progressInWord)))
-                }
-            } // Missing brace was here
-
-        } else {
-            // WPM Reading Mode: WPM drives word transitions
-            readingTask = Task {
-                while isReading && currentWordIndex < words.count - 1 {
-                    var duration: TimeInterval = 0
-
-                    if currentWordIndex < wordTimings.count {
-                        duration = wordTimings[currentWordIndex].time
-                    } else {
-                        duration = 60.0 / appSettings.wordsPerMinute // Fallback
-                    }
-
-                    if appSettings.semanticSplittingEnabled {
-                        timerProgress = 0.0
-                        withAnimation(.linear(duration: duration)) {
-                            timerProgress = 1.0
-                        }
-                    }
-
-                    try await Task.sleep(nanoseconds: UInt64(duration * 1_000_000_000))
-                    if !isReading { break }
-
-                    withAnimation {
                         currentWordIndex += 1
                         if appSettings.hapticFeedbackEnabled {
                             feedbackGenerator.impactOccurred()
                         }
-                    }
                 }
-                if currentWordIndex >= words.count - 1 {
-                    isReading = false
-                }
-                chapterAudioPlayer?.stop() // Stop audio when reading finishes
+            }
+
+            // Update timerProgress for the current word
+            if currentWordIndex < chapter.timedWords?.count ?? 0 {
+                let currentTimedWord = chapter.timedWords![currentWordIndex]
+                let progressInWord = (player.currentTime - currentTimedWord.start) / (currentTimedWord.end - currentTimedWord.start)
+                timerProgress = CGFloat(max(0, min(1, progressInWord)))
             }
         }
     }
@@ -257,7 +217,6 @@ struct ContentView: View {
         withAnimation(.easeInOut(duration: 0.2)) {
             timerProgress = 0.0
         }
-        lofiPlayer?.pause()
         chapterAudioPlayer?.pause()
     }
     
@@ -276,29 +235,7 @@ struct ContentView: View {
         return totalWidth * CGFloat(index) / CGFloat(words.count - 1)
     }
 
-    private func setupLofiPlayer() {
-        guard let url = Bundle.main.url(forResource: "lofi_track", withExtension: "mp3") else { return }
-        do {
-            lofiPlayer = try AVAudioPlayer(contentsOf: url)
-            lofiPlayer?.numberOfLoops = -1 // Loop indefinitely
-            lofiPlayer?.prepareToPlay()
-            lofiPlayer?.currentTime = appSettings.lofiMusicPlaybackTime // Load saved time
-        } catch {
-            print("Error loading lofi track: \(error.localizedDescription)")
-        }
     }
-
-    private func playLofiMusic() {
-        lofiPlayer?.play()
-        isLofiPlaying = true
-    }
-
-    private func stopLofiMusic() {
-        lofiPlayer?.pause()
-        isLofiPlaying = false
-        appSettings.lofiMusicPlaybackTime = lofiPlayer?.currentTime ?? 0.0 // Save current time
-    }
-}
 
 #Preview {
     let books = BookLoader.loadBooks()
