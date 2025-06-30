@@ -3,6 +3,7 @@ import SwiftUI
 
 struct ChapterListView: View {
     @EnvironmentObject var appSettings: AppSettings
+    @EnvironmentObject var userProfileManager: UserProfileManager
     @Environment(\.colorScheme) var colorScheme
     
     let book: Book
@@ -12,7 +13,7 @@ struct ChapterListView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     BookHeaderView(book: book)
-                    ChapterList(book: book, appSettings: appSettings)
+                    ChapterList(book: book)
                 }
             }
             .background(colorScheme == .dark ? .black : Color(UIColor.systemGray6))
@@ -71,7 +72,8 @@ struct BookHeaderView: View {
 
 struct ChapterList: View {
     let book: Book
-    let appSettings: AppSettings
+    @EnvironmentObject var appSettings: AppSettings
+    @EnvironmentObject var userProfileManager: UserProfileManager
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -84,10 +86,18 @@ struct ChapterList: View {
                             .foregroundColor(.secondary)
                             .frame(width: 30, alignment: .center)
                         
-                        Text(book.chapterTitles[index])
-                            .font(.body)
-                            .fontWeight(.medium)
-                            .foregroundColor(.primary)
+                        VStack(alignment: .leading) {
+                            Text(book.chapterTitles[index])
+                                .font(.body)
+                                .fontWeight(.medium)
+                                .foregroundColor(.primary)
+                            
+                            if let progress = userProfileManager.readingProgress(for: book.title, chapter: book.chapterTitles[index]) {
+                                Text(formatProgress(progress))
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
                         
                         Spacer()
                         
@@ -106,8 +116,13 @@ struct ChapterList: View {
     }
 
     private func chapterDestination(_ chapterTitle: String) -> some View {
-        let chapter = BookLoader.loadChapter(for: book, title: chapterTitle, semanticSplittingEnabled: appSettings.semanticSplittingEnabled)
+        let chapter = BookLoader.loadChapter(for: book, title: chapterTitle, semanticSplittingEnabled: appSettings.semanticSplittingEnabled, userProfileManager: userProfileManager)
         return ContentView(book: book, chapter: chapter)
+    }
+    
+    private func formatProgress(_ progress: ReadingProgress) -> String {
+        let percentage = Double(progress.lastReadWordIndex) / Double(progress.totalWords)
+        return String(format: "%.1f%%", percentage * 100)
     }
 }
 
@@ -128,6 +143,7 @@ struct ChapterListView_Previews: PreviewProvider {
         return NavigationView {
             ChapterListView(book: book)
         }.environmentObject(AppSettings())
+        .environmentObject(UserProfileManager())
     }
 }
 #endif

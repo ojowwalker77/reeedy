@@ -34,4 +34,5 @@ struct Chapter: Identifiable {
     let id = UUID()
     var title: String
     var words: [RhythmicWord]
+    var lastReadWordIndex: Int? = nil
 }

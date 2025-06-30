@@ -9,16 +9,17 @@ struct ContentView: View {
     @Environment(\.presentationMode) var presentationMode
     @Environment(\.colorScheme) var colorScheme
     @EnvironmentObject var appSettings: AppSettings
+    @EnvironmentObject var userProfileManager: UserProfileManager
     
     let book: Book
     let chapter: Chapter
     
     @State private var words: [RhythmicWord] = []
+    @State private var wordTimings: [WordTiming] = []
     @State private var currentWordIndex = 0
-    @State private var isReading = true
+    @State private var isReading = false
     @State private var showWordMap = false
     
-    @State private var initialSemanticSplittingEnabled: Bool?
     @State private var timerProgress: CGFloat = 0.0
     
     @State private var readingTask: Task<Void, Error>?
@@ -40,29 +41,25 @@ struct ContentView: View {
         ZStack {
             backgroundColor.ignoresSafeArea()
 
-            VStack {
-                if !words.isEmpty {
-                    Text(words[currentWordIndex].word)
+            VStack(spacing: 20) {
+                Spacer()
+
+                if !wordTimings.isEmpty {
+                    Text(wordTimings[currentWordIndex].word)
                         .font(.system(size: CGFloat(appSettings.fontSize), weight: .regular, design: .rounded))
                         .foregroundColor(foregroundColor)
-                        .padding()
+                        .lineSpacing(CGFloat(appSettings.fontSize) * 0.4)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         .id("word_\(currentWordIndex)")
-                        .transition(.opacity.animation(.easeInOut(duration: 0.08)))
-                    
-                    if appSettings.semanticSplittingEnabled {
-                        GeometryReader { geometry in
-                            Rectangle()
-                                .fill(foregroundColor)
-                                .frame(width: geometry.size.width * timerProgress, height: 2)
-                        }
-                        .frame(height: 2)
-                        .padding(.horizontal)
-                    }
+                        .transition(.opacity.animation(.easeInOut(duration: 0.15)))
                 }
+                
+                Spacer()
             }
+            .padding(.horizontal, 30)
             .padding(.bottom, 100)
             
-            VStack {
+            VStack(spacing: 20) {
                 Spacer()
                 HStack(spacing: 20) {
                     Button(action: {
@@ -83,18 +80,29 @@ struct ContentView: View {
                             .foregroundColor(.secondary)
                     }
                 }
-                .padding()
+                
+                if appSettings.semanticSplittingEnabled {
+                    GeometryReader { geometry in
+                        Rectangle()
+                            .fill(foregroundColor.opacity(0.5))
+                            .frame(width: geometry.size.width * timerProgress, height: 2)
+                    }
+                    .frame(height: 2)
+                    .transition(.opacity)
+                }
             }
+            .padding()
         }
         .fullScreenCover(isPresented: $showWordMap) {
             TimelineView(isPresented: $showWordMap, currentWordIndex: $currentWordIndex, words: words)
         }
         .onAppear {
-            self.initialSemanticSplittingEnabled = appSettings.semanticSplittingEnabled
             setupChapterContent()
-            startReading()
         }
-        .onDisappear(perform: stopReading)
+        .onDisappear {
+            stopReading()
+            saveProgress()
+        }
         .navigationBarBackButtonHidden(true)
         .toolbar {
             ToolbarItem(placement: .principal) {
@@ -109,6 +117,10 @@ struct ContentView: View {
 
     func setupChapterContent() {
         words = chapter.words
+        wordTimings = WordTimeCalculator.calculateWordTimes(for: words, wpm: appSettings.wordsPerMinute)
+        if let lastReadIndex = chapter.lastReadWordIndex {
+            currentWordIndex = lastReadIndex
+        }
     }
 
     func startReading() {
@@ -116,21 +128,14 @@ struct ContentView: View {
         isReading = true
 
         readingTask = Task {
-            while isReading && currentWordIndex < words.count - 1 {
-                let currentRhythmicWord = words[currentWordIndex]
-                var interval: Double
+            while isReading && currentWordIndex < wordTimings.count - 1 {
+                let interval = wordTimings[currentWordIndex].time
 
                 if appSettings.semanticSplittingEnabled {
-                    let wordCount = Double(currentRhythmicWord.word.split(separator: " ").count)
-                    let baseInterval = (60.0 / appSettings.wordsPerMinute) * max(1.0, wordCount)
-                    interval = baseInterval / currentRhythmicWord.speedModifier
-
                     timerProgress = 0.0
                     withAnimation(.linear(duration: interval)) {
                         timerProgress = 1.0
                     }
-                } else {
-                    interval = (60.0 / appSettings.wordsPerMinute) / currentRhythmicWord.speedModifier
                 }
 
                 try await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
@@ -143,7 +148,7 @@ struct ContentView: View {
                     }
                 }
             }
-            if currentWordIndex >= words.count - 1 {
+            if currentWordIndex >= wordTimings.count - 1 {
                 isReading = false
             }
         }
@@ -156,6 +161,11 @@ struct ContentView: View {
         withAnimation(.easeInOut(duration: 0.2)) {
             timerProgress = 0.0
         }
+    }
+    
+    private func saveProgress() {
+        let progress = ReadingProgress(bookTitle: book.title, chapterTitle: chapter.title, lastReadWordIndex: currentWordIndex, totalWords: words.count, date: Date())
+        userProfileManager.saveReadingProgress(for: book.title, progress: progress)
     }
     
     private func progressWidth(_ totalWidth: CGFloat) -> CGFloat {
@@ -178,4 +188,5 @@ struct ContentView: View {
         ContentView(book: book, chapter: chapter)
     }
     .environmentObject(AppSettings())
+    .environmentObject(UserProfileManager())
 }

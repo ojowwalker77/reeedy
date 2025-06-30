@@ -10,7 +10,7 @@ struct SettingsView: View {
                 Section(header: Text("Reading Experience").font(.headline).padding(.top)) {
                     VStack(alignment: .leading, spacing: 15) {
                         Label("Reading Speed", systemImage: "speedometer")
-                        Slider(value: $settings.wordsPerMinute, in: 100...1000, step: 50)
+                        Slider(value: $settings.wordsPerMinute, in: 100...400)
                         Text("\(Int(settings.wordsPerMinute)) WPM")
                             .font(.caption)
                             .foregroundColor(.secondary)
@@ -19,7 +19,7 @@ struct SettingsView: View {
 
                     VStack(alignment: .leading, spacing: 15) {
                         Label("Font Size", systemImage: "textformat.size")
-                        Slider(value: $settings.fontSize, in: 20...120, step: 5)
+                        Slider(value: $settings.fontSize, in: 20...120)
                         Text("\(Int(settings.fontSize))")
                             .font(.caption)
                             .foregroundColor(.secondary)
@@ -31,18 +31,13 @@ struct SettingsView: View {
                     Toggle(isOn: $settings.hapticFeedbackEnabled) {
                         Label("Haptic Feedback", systemImage: "iphone.gen3.radiowaves.left.and.right")
                     }
-                    Toggle(isOn: $settings.semanticSplittingEnabled) {
-                        Label("Semantic Splitting", systemImage: "text.word.spacing")
-                    }
+                    
                     Toggle(isOn: $settings.drainingCupEnabled) {
                         Label("Draining Cup Timer", systemImage: "hourglass")
                     }
                 }
 
-                Section(header: Text("Test Your Settings").font(.headline)) {
-                    TestReaderView()
-                        .environmentObject(settings)
-                }
+                
             }
             .navigationTitle("Settings")
             .background(colorScheme == .dark ? Color.black : Color(UIColor.systemGroupedBackground))

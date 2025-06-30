@@ -15,10 +15,12 @@ struct TimelineView: View {
     @Binding var currentWordIndex: Int
     let words: [RhythmicWord]
     @Environment(\.colorScheme) var colorScheme
+    @EnvironmentObject var appSettings: AppSettings
 
     // Local state
     @State private var localCurrentWordIndex: Int
     @State private var isInitialLoad = true
+    @State private var wordTimings: [WordTiming] = []
     
     // Haptics
     private let lightImpact = UIImpactFeedbackGenerator(style: .light)
@@ -55,6 +57,7 @@ struct TimelineView: View {
         .onAppear {
             lightImpact.prepare()
             heavyImpact.prepare()
+            wordTimings = WordTimeCalculator.calculateWordTimes(for: words, wpm: appSettings.wordsPerMinute)
         }
     }
 
@@ -76,9 +79,9 @@ struct TimelineView: View {
                     LazyVStack(spacing: 0) {
                         Color.clear.frame(height: max(0, halfScreen - Constants.itemHeight / 2))
 
-                        ForEach(words.indices, id: \.self) { index in
+                        ForEach(wordTimings.indices, id: \.self) { index in
                             TimelineWordView(
-                                word: words[index].word,
+                                word: wordTimings[index].word,
                                 isSelected: index == localCurrentWordIndex,
                                 itemHeight: Constants.itemHeight
                             )
@@ -104,9 +107,10 @@ struct TimelineView: View {
                         lightImpact.impactOccurred()
                     }
                 }
-                .onChange(of: localCurrentWordIndex) {
+                .onChange(of: localCurrentWordIndex) { newIndex in
+                    currentWordIndex = newIndex
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
-                        scrollProxy.scrollTo(localCurrentWordIndex, anchor: .center)
+                        scrollProxy.scrollTo(newIndex, anchor: .center)
                     }
                 }
                 .onAppear {
@@ -180,6 +184,7 @@ struct TimelineView_Previews: PreviewProvider {
             currentWordIndex: .constant(10),
             words: sampleWords
         )
+        .environmentObject(AppSettings())
     }
 }
 #endif

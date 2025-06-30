@@ -38,7 +38,7 @@ class BookLoader {
     }
 
     // Loads the content for a single, specific chapter from its text file.
-    static func loadChapter(for book: Book, title: String, semanticSplittingEnabled: Bool) -> Chapter {
+    static func loadChapter(for book: Book, title: String, semanticSplittingEnabled: Bool, userProfileManager: UserProfileManager? = nil) -> Chapter {
         let fileManager = FileManager.default
         
         guard let booksURL = Bundle.main.url(forResource: "Books", withExtension: nil) else {
@@ -71,7 +71,12 @@ class BookLoader {
             print("Chapter file not found: \(mdURL.path)")
         }
         
-        return Chapter(title: title, words: words)
+        var chapter = Chapter(title: title, words: words)
+        if let manager = userProfileManager, let progress = manager.readingProgress(for: book.title, chapter: title) {
+            chapter.lastReadWordIndex = progress.lastReadWordIndex
+        }
+        
+        return chapter
     }
 
     // Processes a line of text in semantic mode.

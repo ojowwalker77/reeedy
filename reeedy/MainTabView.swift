@@ -3,6 +3,7 @@ import SwiftUI
 
 struct MainTabView: View {
     @StateObject private var appSettings = AppSettings()
+    @StateObject private var userProfileManager = UserProfileManager()
 
     var body: some View {
         ZStack {
@@ -20,6 +21,7 @@ struct MainTabView: View {
             .background(.regularMaterial)
         }
         .environmentObject(appSettings) // Provide the settings to all child views
+        .environmentObject(userProfileManager)
     }
 }
 

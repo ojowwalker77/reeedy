@@ -6,5 +6,5 @@ class AppSettings: ObservableObject {
     @AppStorage("fontSize") var fontSize: Double = 50.0
     @AppStorage("hapticFeedbackEnabled") var hapticFeedbackEnabled: Bool = true
     @AppStorage("drainingCupEnabled") var drainingCupEnabled: Bool = true
-    @AppStorage("semanticSplittingEnabled") var semanticSplittingEnabled: Bool = false
+    @AppStorage("semanticSplittingEnabled") var semanticSplittingEnabled: Bool = true
 }
