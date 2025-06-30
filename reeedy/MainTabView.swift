@@ -12,7 +12,7 @@ struct MainTabView: View {
                         Label("Library", systemImage: "books.vertical")
                     }
 
-                AppSettingsView()
+                SettingsView()
                     .tabItem {
                         Label("Settings", systemImage: "gear")
                     }

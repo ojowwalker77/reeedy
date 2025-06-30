@@ -10,15 +10,17 @@ struct ContentView: View {
     @Environment(\.colorScheme) var colorScheme
     @EnvironmentObject var appSettings: AppSettings
     
-    @State var book: Book
+    let book: Book
+    let chapter: Chapter
+    
     @State private var words: [RhythmicWord] = []
     @State private var currentWordIndex = 0
     @State private var isReading = true
-    @State private var wasReading = false
+    @State private var showWordMap = false
+    
     @State private var initialSemanticSplittingEnabled: Bool?
     @State private var timerProgress: CGFloat = 0.0
     
-    @State private var showSettings = false
     @State private var readingTask: Task<Void, Error>?
     private let feedbackGenerator = UIImpactFeedbackGenerator(style: .light)
 
@@ -27,14 +29,6 @@ struct ContentView: View {
     }
     private var foregroundColor: Color {
         colorScheme == .dark ? .white : .black
-    }
-
-    private var drainingCupColor: Color {
-        colorScheme == .dark ? Color(white: 0.1) : Color(red: 1.0, green: 0.98, blue: 0.9)
-    }
-    
-    private var currentChapter: Chapter? {
-        book.chapters.last { $0.startWordIndex <= currentWordIndex }
     }
 
     private var progress: CGFloat {
@@ -46,73 +40,58 @@ struct ContentView: View {
         ZStack {
             backgroundColor.ignoresSafeArea()
 
-            if appSettings.semanticSplittingEnabled && appSettings.drainingCupEnabled {
-                GeometryReader { geometry in
-                    Rectangle()
-                        .fill(drainingCupColor)
-                        .frame(height: geometry.size.height)
-                        .scaleEffect(y: timerProgress, anchor: .bottom)
-                }
-                .ignoresSafeArea()
-            }
-
             VStack {
                 if !words.isEmpty {
                     Text(words[currentWordIndex].word)
-                        .font(.system(size: CGFloat(appSettings.fontSize), weight: .regular, design: .rounded)) // Convert to CGFloat here
+                        .font(.system(size: CGFloat(appSettings.fontSize), weight: .regular, design: .rounded))
                         .foregroundColor(foregroundColor)
                         .padding()
                         .id("word_\(currentWordIndex)")
                         .transition(.opacity.animation(.easeInOut(duration: 0.08)))
+                    
+                    if appSettings.semanticSplittingEnabled {
+                        GeometryReader { geometry in
+                            Rectangle()
+                                .fill(foregroundColor)
+                                .frame(width: geometry.size.width * timerProgress, height: 2)
+                        }
+                        .frame(height: 2)
+                        .padding(.horizontal)
+                    }
                 }
             }
             .padding(.bottom, 100)
             
             VStack {
                 Spacer()
-                chapterAndProgressBarView
-                swipeUpIndicator
-            }
-
-            if showSettings {
-                QuickSettingsView(
-                    currentWordIndex: $currentWordIndex, 
-                    words: words, 
-                    chapters: book.chapters,
-                    backgroundColor: backgroundColor,
-                    onDone: { closeSettings() },
-                    book: $book
-                )
-                .environmentObject(appSettings)
-                .transition(.asymmetric(insertion: .move(edge: .bottom), removal: .move(edge: .bottom)))
-            }
-        }
-        .contentShape(Rectangle())
-        .onTapGesture {
-            if !showSettings {
-                isReading.toggle()
-                if isReading { startReading() } else { stopReading() }
-            }
-        }
-        .gesture(
-            DragGesture(minimumDistance: 30, coordinateSpace: .local).onEnded { value in
-                if showSettings { return }
-                
-                // Swipe up for settings
-                if value.translation.height < -50 {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                        wasReading = isReading
-                        stopReading()
-                        isReading = false
-                        showSettings = true
+                HStack(spacing: 20) {
+                    Button(action: {
+                        isReading.toggle()
+                        if isReading { startReading() } else { stopReading() }
+                    }) {
+                        Image(systemName: isReading ? "pause.circle" : "play.circle")
+                            .font(.largeTitle)
+                            .foregroundColor(.secondary)
                     }
-                    return
+                    
+                    Button(action: {
+                        stopReading()
+                        showWordMap = true
+                    }) {
+                        Image(systemName: "text.quote")
+                            .font(.title2)
+                            .foregroundColor(.secondary)
+                    }
                 }
+                .padding()
             }
-        )
+        }
+        .fullScreenCover(isPresented: $showWordMap) {
+            TimelineView(isPresented: $showWordMap, currentWordIndex: $currentWordIndex, words: words)
+        }
         .onAppear {
             self.initialSemanticSplittingEnabled = appSettings.semanticSplittingEnabled
-            setupBookContent()
+            setupChapterContent()
             startReading()
         }
         .onDisappear(perform: stopReading)
@@ -121,55 +100,15 @@ struct ContentView: View {
             ToolbarItem(placement: .principal) {
                 VStack {
                     Text(book.title).font(.headline).foregroundColor(foregroundColor)
-                    if let chapter = currentChapter {
-                        Text(chapter.title)
-                            .font(.caption2).foregroundColor(.gray)
-                    }
+                    Text(chapter.title)
+                        .font(.caption2).foregroundColor(.gray)
                 }.onTapGesture { presentationMode.wrappedValue.dismiss() }
             }
         }
     }
 
-    private var chapterAndProgressBarView: some View {
-        VStack {
-            if let chapter = currentChapter {
-                Text(chapter.title)
-                    .font(.headline)
-                    .foregroundColor(foregroundColor)
-                    .padding(.bottom, 5)
-            }
-            chapterProgressBarView
-        }
-        .padding(.horizontal)
-        .padding(.bottom, 20)
-    }
-    
-    private var chapterProgressBarView: some View {
-        GeometryReader { geometry in
-            ZStack(alignment: .leading) {
-                Rectangle().fill(Color.gray.opacity(0.5)).frame(height: 4)
-                Rectangle().fill(foregroundColor).frame(width: progressWidth(geometry.size.width), height: 4)
-                ForEach(book.chapters) { chapter in
-                    Button(action: { currentWordIndex = chapter.startWordIndex }) {
-                        Circle().fill(foregroundColor).frame(width: 10, height: 10)
-                    }.position(x: markerPosition(for: chapter.startWordIndex, in: geometry.size.width), y: geometry.size.height / 2)
-                }
-            }
-        }
-        .frame(height: 20)
-    }
-
-    private func closeSettings() {
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-            showSettings = false
-            if wasReading {
-                startReading()
-            }
-        }
-    }
-
-    func setupBookContent() {
-        words = book.chapters.flatMap { $0.words }
+    func setupChapterContent() {
+        words = chapter.words
     }
 
     func startReading() {
@@ -183,22 +122,15 @@ struct ContentView: View {
 
                 if appSettings.semanticSplittingEnabled {
                     let wordCount = Double(currentRhythmicWord.word.split(separator: " ").count)
-                    var baseInterval = (60.0 / appSettings.wordsPerMinute) * max(1.0, wordCount)
-                    baseInterval /= currentRhythmicWord.speedModifier
+                    let baseInterval = (60.0 / appSettings.wordsPerMinute) * max(1.0, wordCount)
+                    interval = baseInterval / currentRhythmicWord.speedModifier
 
-                    interval = baseInterval
-
-                    // "Filling the cup" animation
-                    if appSettings.drainingCupEnabled {
+                    timerProgress = 0.0
+                    withAnimation(.linear(duration: interval)) {
                         timerProgress = 1.0
-                        withAnimation(.linear(duration: interval)) {
-                            timerProgress = 0.0
-                        }
                     }
-
-                } else { // Single word logic
-                    interval = 60.0 / appSettings.wordsPerMinute
-                    interval /= currentRhythmicWord.speedModifier
+                } else {
+                    interval = (60.0 / appSettings.wordsPerMinute) / currentRhythmicWord.speedModifier
                 }
 
                 try await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
@@ -221,6 +153,9 @@ struct ContentView: View {
         isReading = false
         readingTask?.cancel()
         readingTask = nil
+        withAnimation(.easeInOut(duration: 0.2)) {
+            timerProgress = 0.0
+        }
     }
     
     private func progressWidth(_ totalWidth: CGFloat) -> CGFloat {
@@ -232,18 +167,15 @@ struct ContentView: View {
         guard words.count > 1 else { return 0 }
         return totalWidth * CGFloat(index) / CGFloat(words.count - 1)
     }
-    
-    private var swipeUpIndicator: some View {
-        Image(systemName: "chevron.up")
-            .font(.caption)
-            .foregroundColor(.secondary)
-            .padding(.bottom, 10)
-    }
 }
 
 #Preview {
-    NavigationView {
-        ContentView(book: BookLoader.loadBooks(semanticSplittingEnabled: false).first!)
+    let books = BookLoader.loadBooks()
+    let book = books.first!
+    let chapter = BookLoader.loadChapter(for: book, title: book.chapterTitles.first!, semanticSplittingEnabled: false)
+    
+    return NavigationView {
+        ContentView(book: book, chapter: chapter)
     }
     .environmentObject(AppSettings())
 }
