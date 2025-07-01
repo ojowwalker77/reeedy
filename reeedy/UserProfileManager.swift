@@ -15,17 +15,26 @@ class UserProfileManager: ObservableObject {
 
     static func loadProfile() -> UserProfile {
         if let data = try? Data(contentsOf: profileURL) {
-            if let profile = try? JSONDecoder().decode(UserProfile.self, from: data) {
+            if var profile = try? JSONDecoder().decode(UserProfile.self, from: data) {
+                if profile.selectedProfile == nil {
+                    profile.selectedProfile = "Adult"
+                }
                 return profile
             }
         }
-        return UserProfile(readingHistory: [])
+        return UserProfile(selectedProfile: "Adult", readingHistory: [])
     }
 
     func saveProfile() {
         if let data = try? JSONEncoder().encode(userProfile) {
             try? data.write(to: Self.profileURL, options: [.atomic, .completeFileProtection])
         }
+    }
+
+    func selectProfile(_ profile: String) {
+        userProfile.selectedProfile = profile
+        objectWillChange.send()
+        saveProfile()
     }
 
     func saveReadingProgress(for bookTitle: String, progress: ReadingProgress) {

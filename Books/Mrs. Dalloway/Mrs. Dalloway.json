@@ -2,5 +2,6 @@
   "title": "Mrs. Dalloway",
   "author": "Virginia Woolf",
   "imageName": "Mrs.Dalloway",
-  "Chapters": ["Mrs. Dalloway"]
+  "Chapters": ["Mrs. Dalloway"],
+  "Age" : "Adult"
 }

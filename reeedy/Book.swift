@@ -7,9 +7,10 @@ struct Book: Identifiable, Decodable {
     let author: String
     let imageName: String
     let chapterTitles: [String] // Changed from a [Chapter] to a [String]
+    let age: String
 
     enum CodingKeys: String, CodingKey {
-        case title, author, imageName, chapters = "Chapters" // Map the JSON "Chapters" key
+        case title, author, imageName, chapters = "Chapters", age = "Age"
     }
 
     // Custom decoder to generate a UUID and handle the chapter titles.
@@ -20,6 +21,7 @@ struct Book: Identifiable, Decodable {
         self.author = try container.decode(String.self, forKey: .author)
         self.imageName = try container.decode(String.self, forKey: .imageName)
         self.chapterTitles = try container.decode([String].self, forKey: .chapters)
+        self.age = try container.decode(String.self, forKey: .age)
     }
 }
 

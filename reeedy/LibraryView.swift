@@ -2,16 +2,25 @@ import SwiftUI
 
 struct LibraryView: View {
     @EnvironmentObject var appSettings: AppSettings
+    @EnvironmentObject var userProfileManager: UserProfileManager
     @Environment(\.colorScheme) var colorScheme
     
     @State private var allBooks: [Book] = []
+    @State private var showingProfileSelection = false
+
+    private var filteredBooks: [Book] {
+        guard let selectedProfile = userProfileManager.userProfile.selectedProfile else {
+            return allBooks
+        }
+        return allBooks.filter { $0.age == selectedProfile }
+    }
     
     private var featuredBook: Book? {
-        allBooks.first { $0.title == "The Silmarillion" }
+        filteredBooks.first { $0.title == "The Silmarillion" }
     }
     
     private var libraryBooks: [Book] {
-        allBooks.filter { $0.id != featuredBook?.id }
+        filteredBooks.filter { $0.id != featuredBook?.id }
     }
 
     var body: some View {
@@ -21,6 +30,10 @@ struct LibraryView: View {
                     if let featuredBook = featuredBook {
                         FeaturedBookView(book: featuredBook)
                             .padding(.bottom, 25)
+                    } else {
+                        // Provides top clearance when no featured book is visible,
+                        // pushing the "Library" title below the status bar.
+                        Spacer().frame(height: 90)
                     }
 
                     if !libraryBooks.isEmpty {
@@ -39,6 +52,33 @@ struct LibraryView: View {
             .background(colorScheme == .dark ? Color.black : Color(UIColor.systemGray6))
             .ignoresSafeArea(edges: .top)
             .navigationBarHidden(true)
+            .safeAreaInset(edge: .top) {
+                HStack {
+                    Spacer()
+                    Button(action: { showingProfileSelection = true }) {
+                        if userProfileManager.userProfile.selectedProfile == "Children" {
+                            Image("KidsProfile")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 40, height: 40)
+                        } else {
+                            Image(systemName: "person.crop.circle")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 40, height: 40)
+                        }
+                    }
+                    .padding()
+                    .background(Color.black.opacity(0.2))
+                    .clipShape(Circle())
+                    .foregroundColor(.white)
+                }
+                .padding(.trailing)
+            }
+            .sheet(isPresented: $showingProfileSelection) {
+                ProfileSelectionView(isPresented: $showingProfileSelection)
+                    .environmentObject(userProfileManager)
+            }
         }
         .navigationViewStyle(.stack)
         .onAppear {
@@ -138,4 +178,5 @@ struct BookCoverItemView: View {
 #Preview {
     LibraryView()
         .environmentObject(AppSettings())
+        .environmentObject(UserProfileManager())
 }
