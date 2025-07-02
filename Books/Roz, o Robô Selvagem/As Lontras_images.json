@@ -1,0 +1,29 @@
+{
+  "images": [
+    {
+      "imageName": "lontras1",
+      "startTime": 0.0,
+      "endTime": 13.58
+    },
+    {
+      "imageName": "lontras2",
+      "startTime": 13.58,
+      "endTime": 39.18
+    },
+    {
+      "imageName": "lontras3",
+      "startTime": 39.18,
+      "endTime": 67.88
+    },
+    {
+      "imageName": "lontras4",
+      "startTime": 67.88,
+      "endTime": 115.76
+    },
+    {
+      "imageName": "lontras5",
+      "startTime": 115.76,
+      "endTime": 137.28
+    }
+  ]
+}

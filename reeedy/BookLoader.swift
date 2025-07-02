@@ -73,6 +73,7 @@ class BookLoader {
         
         var chapter = Chapter(title: title, words: words)
         chapter.timedWords = loadTimedWords(for: book, chapterTitle: title)
+        chapter.chapterImages = loadChapterImages(for: book, chapterTitle: title) // Load chapter images
         if let manager = userProfileManager, let progress = manager.readingProgress(for: book.title, chapter: title) {
             chapter.lastReadWordIndex = progress.lastReadWordIndex
         }
@@ -170,6 +171,33 @@ class BookLoader {
             return gentleOutput.word_segments
         } catch {
             print("Error loading timed words from \(jsonURL.path): \(error)")
+            return nil
+        }
+    }
+
+    // Helper struct to decode the Chapter Images JSON output
+    private struct ChapterImageOutput: Decodable {
+        let images: [ChapterImage]
+    }
+
+    // Loads chapter image data from a JSON file.
+    static func loadChapterImages(for book: Book, chapterTitle: String) -> [ChapterImage]? {
+        guard let booksURL = Bundle.main.url(forResource: "Books", withExtension: nil) else {
+            print("Error: 'Books' directory not found in the application bundle.")
+            return nil
+        }
+        
+        let bookDirectory = booksURL.appendingPathComponent(book.title)
+        // Assuming the JSON file is named after the chapter with a _images.json suffix
+        let jsonFileName = "\(chapterTitle)_images.json"
+        let jsonURL = bookDirectory.appendingPathComponent(jsonFileName)
+
+        do {
+            let data = try Data(contentsOf: jsonURL)
+            let chapterImageOutput = try JSONDecoder().decode(ChapterImageOutput.self, from: data)
+            return chapterImageOutput.images
+        } catch {
+            print("Error loading chapter images from \(jsonURL.path): \(error)")
             return nil
         }
     }

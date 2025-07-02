@@ -6,24 +6,56 @@ extension Color {
     static let comfortableWhite = Color(red: 0.98, green: 0.97, blue: 0.93)
 }
 
+
+
+// New class for handling AVAudioPlayerDelegate
+class AudioPlayerDelegateHandler: NSObject, AVAudioPlayerDelegate {
+    var onFinishPlaying: (() -> Void)?
+    var onStopReading: (() -> Void)?
+
+    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        if flag {
+            onStopReading?()
+            onFinishPlaying?()
+        }
+    }
+}
+
 struct ContentView: View {
-    @Environment(\.presentationMode) var presentationMode
     @Environment(\.colorScheme) var colorScheme
     @EnvironmentObject var appSettings: AppSettings
     @EnvironmentObject var userProfileManager: UserProfileManager
+    @EnvironmentObject var themeManager: ThemeManager
+    @Environment(\.dismiss) var dismiss // Use dismiss for popping views
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) var reduceTransparency
     
     let book: Book
     let chapter: Chapter
 
+    // MARK: - Initializers
+    /// Designated initializer used throughout the app
     public init(book: Book, chapter: Chapter) {
         self.book = book
         self.chapter = chapter
     }
     
+    /// Convenience initializer kept for backward‑compatibility with older call‑sites
+    /// that still pass an explicit `navigationPath`. The parameter is ignored because
+    /// `ContentView` now receives the path through the environment.
+    public init(book: Book, chapter: Chapter, navigationPath: Binding<NavigationPath>) {
+        self.book = book
+        self.chapter = chapter
+        _ = navigationPath // silence “unused” warning
+    }
+
+    
     @State private var words: [RhythmicWord] = []
     @State private var currentWordIndex = 0
     @State private var isReading = false
     @State private var showWordMap = false
+    @State private var currentImageName: String? // New state variable for current image
+    @State private var showNextChapterPrompt = false // New state for next chapter prompt
     
     @State private var timerProgress: CGFloat = 0.0
     
@@ -31,12 +63,34 @@ struct ContentView: View {
     private let feedbackGenerator = UIImpactFeedbackGenerator(style: .light)
     @State private var chapterAudioPlayer: AVAudioPlayer?
     @State private var audioProgressTimer: Timer? = nil
+    private let audioDelegate = AudioPlayerDelegateHandler()
 
     private var backgroundColor: Color {
         colorScheme == .dark ? .black : .comfortableWhite
     }
     private var foregroundColor: Color {
-        colorScheme == .dark ? .white : .black
+        if currentImageName != nil && !reduceTransparency {
+            return .white // Always white text over an image
+        } else {
+            return colorScheme == .dark ? .white : .black
+        }
+    }
+
+    @ViewBuilder
+    private var backgroundContent: some View {
+        Group {
+            if let imageName = currentImageName, !reduceTransparency {
+                Image(imageName)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .clipped()
+                    .overlay(Color.black.opacity(0.4))
+                    .transition(.opacity.animation(reduceMotion ? .none : .easeInOut(duration: 1.5)))
+            } else {
+                backgroundColor
+            }
+        }
+        .edgesIgnoringSafeArea(.all)
     }
 
     private var progress: CGFloat {
@@ -55,36 +109,29 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
-            backgroundColor.ignoresSafeArea()
-
             VStack(spacing: 20) {
                 Spacer()
 
                 if !words.isEmpty {
                     Text(currentWordText)
-                        .font(.system(size: CGFloat(appSettings.fontSize), weight: .regular, design: .rounded))
-                        .foregroundColor(foregroundColor)
+                        .font(appSettings.selectedFont.font(size: CGFloat(appSettings.fontSize)))
                         .lineSpacing(CGFloat(appSettings.fontSize) * 0.4)
+                        .minimumScaleFactor(0.5) // Allow font to shrink
+                        .lineLimit(nil) // Allow multiple lines
                         .frame(maxWidth: .infinity, alignment: .center)
                         .id("word_\(currentWordIndex)")
-                        .transition(.opacity.animation(.easeInOut(duration: 0.15)))
+                        .transition(.opacity.animation(reduceMotion ? .none : .easeInOut(duration: 0.15)))
                 }
                 
                 Spacer()
-            }
-            .padding(.horizontal, 30)
-            .padding(.bottom, 100)
-            
-            VStack(spacing: 20) {
-                Spacer()
+                
                 HStack {
                     Button(action: {
-                        stopReading()
-                        showWordMap = true
+                        restartChapter()
                     }) {
-                        Image(systemName: "text.quote")
-                            .font(.title2)
-                            .foregroundColor(.secondary)
+                        Image(systemName: "gobackward")
+                            .font(.title)
+                            .foregroundColor(foregroundColor)
                     }
 
                     Spacer()
@@ -94,8 +141,8 @@ struct ContentView: View {
                         if isReading { startReading() } else { stopReading() }
                     }) {
                         Image(systemName: isReading ? "pause.circle" : "play.circle")
-                            .font(.largeTitle)
-                            .foregroundColor(.secondary)
+                            .font(.system(size: 48))
+                            .foregroundColor(foregroundColor)
                     }
 
                     Spacer()
@@ -108,41 +155,58 @@ struct ContentView: View {
                         }
                     }) {
                         Image(systemName: (chapterAudioPlayer?.volume ?? 1.0) > 0.0 ? "speaker.wave.2.fill" : "speaker.slash.fill")
-                            .font(.title2)
-                            .foregroundColor(.secondary)
+                            .font(.title)
+                            .foregroundColor(foregroundColor)
                     }
                 }
                 
-                if appSettings.semanticSplittingEnabled {
-                    GeometryReader { geometry in
-                        Rectangle()
-                            .fill(foregroundColor.opacity(0.5))
-                            .frame(width: geometry.size.width * timerProgress, height: 2)
-                    }
-                    .frame(height: 2)
-                    .transition(.opacity)
+                
+            }
+            .padding(.horizontal, 30)
+            .padding(.bottom, 40)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .foregroundColor(foregroundColor)
+            .background(backgroundContent)
+            .preferredColorScheme(colorScheme == .dark ? .dark : .light)
+            .onAppear {
+                setupChapterContent()
+            }
+            .onDisappear {
+                stopReading()
+                saveProgress()
+            }
+            .navigationBarBackButtonHidden(true)
+            
+            // Apply the selected themes as an overlay
+            ForEach(themeManager.activeOverlays) { theme in
+                Rectangle()
+                    .fill(theme.overlayColor)
+                    .blendMode(theme.blendMode)
+                    .ignoresSafeArea()
+                    .allowsHitTesting(false)
+            }
+        }
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button(action: {
+                    let currentFontIndex = AppFont.allCases.firstIndex(of: appSettings.selectedFont) ?? 0
+                    let nextFontIndex = (currentFontIndex + 1) % AppFont.allCases.count
+                    appSettings.selectedFont = AppFont.allCases[nextFontIndex]
+                }) {
+                    Image(systemName: "textformat")
+                        .font(.title2)
+                        .foregroundColor(foregroundColor)
                 }
             }
-            .padding()
-        }
-        .fullScreenCover(isPresented: $showWordMap) {
-            TimelineView(isPresented: $showWordMap, currentWordIndex: $currentWordIndex, words: words)
-        }
-        .onAppear {
-            setupChapterContent()
-        }
-        .onDisappear {
-            stopReading()
-            saveProgress()
-        }
-        .navigationBarBackButtonHidden(true)
-        .toolbar {
             ToolbarItem(placement: .principal) {
                 VStack {
-                    Text(book.title).font(.headline).foregroundColor(foregroundColor)
+                    Text(book.title)
+                        .font(appSettings.selectedFont.font(size: 17, weight: .bold))
+                        .foregroundColor(foregroundColor)
                     Text(chapter.title)
-                        .font(.caption2).foregroundColor(.gray)
-                }.onTapGesture { presentationMode.wrappedValue.dismiss() }
+                        .font(appSettings.selectedFont.font(size: 12))
+                        .foregroundColor(.gray)
+                }.onTapGesture { dismiss() }
             }
         }
     }
@@ -153,14 +217,38 @@ struct ContentView: View {
             currentWordIndex = lastReadIndex
         }
 
-        // Setup chapter audio player
-        let audioFileName = book.title.replacingOccurrences(of: " ", with: "_").replacingOccurrences(of: ".", with: "")
-        if let audioURL = Bundle.main.url(forResource: audioFileName, withExtension: "mp3") {
-            do {
-                chapterAudioPlayer = try AVAudioPlayer(contentsOf: audioURL)
-                chapterAudioPlayer?.prepareToPlay()
-            } catch {
-                print("Error loading chapter audio: \(error.localizedDescription)")
+        // Setup chapter audio player on a background thread
+        Task { @MainActor in
+            if let booksURL = Bundle.main.url(forResource: "Books", withExtension: nil) {
+                let bookDirectory = booksURL.appendingPathComponent(book.title)
+                let audioFileName = chapter.title
+                let audioURL = bookDirectory.appendingPathComponent("\(audioFileName).mp3")
+
+                do {
+                    chapterAudioPlayer = try AVAudioPlayer(contentsOf: audioURL)
+                    // Set delegate handler's callbacks
+                    audioDelegate.onFinishPlaying = {
+                        self.dismiss()
+                    }
+                    audioDelegate.onStopReading = {
+                        stopReading()
+                    }
+                    chapterAudioPlayer?.delegate = audioDelegate // Set the delegate
+                    chapterAudioPlayer?.prepareToPlay()
+
+                    // Pre-load initial image based on current word index
+                    if let timedWords = chapter.timedWords, currentWordIndex < timedWords.count,
+                       let chapterImages = chapter.chapterImages {
+                        let initialTime = timedWords[currentWordIndex].start
+                        let initialImage = chapterImages.first {
+                            initialTime >= $0.startTime && initialTime < $0.endTime
+                        }
+                        currentImageName = initialImage?.imageName
+                    }
+
+                } catch {
+                    print("Error loading chapter audio from \(audioURL.path): \(error.localizedDescription)")
+                }
             }
         }
     }
@@ -176,32 +264,49 @@ struct ContentView: View {
         chapterAudioPlayer?.currentTime = word.start
         chapterAudioPlayer?.play()
 
+        // Set initial image based on current audio time
+        if let chapterImages = chapter.chapterImages, let player = chapterAudioPlayer {
+            let initialImage = chapterImages.first {
+                player.currentTime >= $0.startTime && player.currentTime < $0.endTime
+            }
+            currentImageName = initialImage?.imageName
+        }
+
         audioProgressTimer?.invalidate()
         audioProgressTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { _ in
             guard let player = chapterAudioPlayer, player.isPlaying else { return }
 
             // Update currentWordIndex based on audio progress
             if let timedWords = chapter.timedWords {
-                let newIndex = timedWords.firstIndex { word in
-                    player.currentTime >= word.start && player.currentTime < word.end
+                let newIndex = timedWords.firstIndex {
+                    player.currentTime >= $0.start && player.currentTime < $0.end
                 }
                 if let actualNewIndex = newIndex, actualNewIndex != currentWordIndex {
-                        currentWordIndex = actualNewIndex
-                        if appSettings.hapticFeedbackEnabled {
-                            feedbackGenerator.impactOccurred()
-                        }
-                    } else if newIndex == nil && currentWordIndex < timedWords.count - 1 && player.currentTime >= timedWords[currentWordIndex].end {
-                        // If we are between words and have passed the current word's end, advance to the next
-                        currentWordIndex += 1
-                        if appSettings.hapticFeedbackEnabled {
-                            feedbackGenerator.impactOccurred()
-                        }
+                    currentWordIndex = actualNewIndex
+                    if appSettings.hapticFeedbackEnabled {
+                        feedbackGenerator.impactOccurred()
+                    }
+                } else if newIndex == nil && currentWordIndex < timedWords.count - 1 && player.currentTime >= timedWords[currentWordIndex].end {
+                    // If we are between words and have passed the current word's end, advance to the next
+                    currentWordIndex += 1
+                    if appSettings.hapticFeedbackEnabled {
+                        feedbackGenerator.impactOccurred()
+                    }
+                }
+            }
+
+            // Update currentImageName based on audio progress
+            if let chapterImages = chapter.chapterImages {
+                if let currentImage = chapterImages.first(where: { player.currentTime >= $0.startTime && player.currentTime < $0.endTime }) {
+                    if currentImage.imageName != currentImageName {
+                        currentImageName = currentImage.imageName
+                    }
                 }
             }
 
             // Update timerProgress for the current word
-            if currentWordIndex < chapter.timedWords?.count ?? 0 {
-                let currentTimedWord = chapter.timedWords![currentWordIndex]
+            if let timedWords = chapter.timedWords, currentWordIndex < timedWords.count {
+                let currentTimedWord = timedWords[currentWordIndex]
                 let progressInWord = (player.currentTime - currentTimedWord.start) / (currentTimedWord.end - currentTimedWord.start)
                 timerProgress = CGFloat(max(0, min(1, progressInWord)))
             }
@@ -214,10 +319,18 @@ struct ContentView: View {
         readingTask = nil
         audioProgressTimer?.invalidate()
         audioProgressTimer = nil
-        withAnimation(.easeInOut(duration: 0.2)) {
+        withAnimation(reduceMotion ? .none : .easeInOut(duration: 0.2)) {
             timerProgress = 0.0
         }
         chapterAudioPlayer?.pause()
+    }
+    
+    func restartChapter() {
+        stopReading()
+        currentWordIndex = 0
+        currentImageName = nil // Reset image
+        chapterAudioPlayer?.currentTime = 0
+        startReading()
     }
     
     private func saveProgress() {
@@ -234,18 +347,33 @@ struct ContentView: View {
         guard words.count > 1 else { return 0 }
         return totalWidth * CGFloat(index) / CGFloat(words.count - 1)
     }
-
-    }
+}
 
 #Preview {
-    let books = BookLoader.loadBooks()
-    let book = books.first!
-    let chapter = BookLoader.loadChapter(for: book, title: book.chapterTitles.first!, semanticSplittingEnabled: false)
-    
-    NavigationView {
-        ContentView(book: book, chapter: chapter)
+    struct ContentViewPreview: View {
+        @State private var path = NavigationPath()
+        private static var userProfileManager = UserProfileManager()
+        private static var book: Book? = BookLoader.loadBooks().first
+        
+        var body: some View {
+            if let book = Self.book {
+                let chapter = BookLoader.loadChapter(for: book, title: book.chapterTitles.first!, semanticSplittingEnabled: false, userProfileManager: Self.userProfileManager)
+                NavigationStack(path: $path) {
+                    ContentView(book: book, chapter: chapter)
+                        .navigationDestination(for: Chapter.self) { nextChapter in
+                            ContentView(book: book, chapter: nextChapter)
+                        }
+                }
+                .environmentObject(AppSettings())
+                .environmentObject(Self.userProfileManager)
+                .environmentObject(ThemeManager())
+            } else {
+                Text("Failed to load book or chapter for preview.")
+            }
+        }
     }
-    .environmentObject(AppSettings())
-    .environmentObject(UserProfileManager())
+    
+    return ContentViewPreview()
 }
+
 

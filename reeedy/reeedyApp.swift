@@ -7,9 +7,12 @@ struct reeedyApp: App {
 
     var body: some Scene {
         WindowGroup {
-            MainTabView()
+            NavigationStack {
+                MainTabView()
+            }
                 .environmentObject(userProfileManager)
                 .environmentObject(appSettings)
+                .preferredColorScheme(.dark)
         }
     }
 }

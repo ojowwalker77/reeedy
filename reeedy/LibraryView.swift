@@ -1,177 +1,199 @@
 import SwiftUI
 
+extension View {
+    func cornerRadius(_ radius: CGFloat, corners: UIRectCorner) -> some View {
+        clipShape(RoundedCorner(radius: radius, corners: corners) )
+    }
+}
+
+struct RoundedCorner: Shape {
+    var radius: CGFloat = .infinity
+    var corners: UIRectCorner = .allCorners
+
+    func path(in rect: CGRect) -> Path {
+        let path = UIBezierPath(roundedRect: rect, byRoundingCorners: corners, cornerRadii: CGSize(width: radius, height: radius))
+        return Path(path.cgPath)
+    }
+}
+
 struct LibraryView: View {
     @EnvironmentObject var appSettings: AppSettings
     @EnvironmentObject var userProfileManager: UserProfileManager
+    @EnvironmentObject var themeManager: ThemeManager
     @Environment(\.colorScheme) var colorScheme
     
     @State private var allBooks: [Book] = []
-    @State private var showingProfileSelection = false
-
+    
     private var filteredBooks: [Book] {
-        guard let selectedProfile = userProfileManager.userProfile.selectedProfile else {
-            return allBooks
-        }
-        return allBooks.filter { $0.age == selectedProfile }
+        allBooks.filter { $0.language == appSettings.selectedLanguage }
     }
-    
+
     private var featuredBook: Book? {
-        filteredBooks.first { $0.title == "The Silmarillion" }
+        filteredBooks.first { $0.title == "Mrs Dalloway" }
     }
     
-    private var libraryBooks: [Book] {
-        filteredBooks.filter { $0.id != featuredBook?.id }
+    private var continueReadingBooks: [Book] {
+        let recentBooks = userProfileManager.userProfile.readingHistory
+            .sorted { $0.date > $1.date }
+            .map { $0.bookTitle }
+        
+        return filteredBooks.filter { recentBooks.contains($0.title) }
     }
-
+    
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: 30) {
+                    LibraryHeaderView()
+                    
                     if let featuredBook = featuredBook {
-                        FeaturedBookView(book: featuredBook)
-                            .padding(.bottom, 25)
-                    } else {
-                        // Provides top clearance when no featured book is visible,
-                        // pushing the "Library" title below the status bar.
-                        Spacer().frame(height: 90)
-                    }
-
-                    if !libraryBooks.isEmpty {
-                        VStack(alignment: .leading, spacing: 25) {
-                            Text("Library")
-                                .font(.title2)
-                                .fontWeight(.bold)
-                            
-                            BookGridView(books: libraryBooks)
+                        NavigationLink(value: featuredBook) {
+                            FeaturedBookView(book: featuredBook)
                         }
-                        .padding(.horizontal)
+                        .buttonStyle(PlainButtonStyle())
                     }
+                    
+                    if !continueReadingBooks.isEmpty {
+                        BookCarouselView(title: appSettings.selectedLanguage == "Portuguese" ? "Continue Lendo" : "Continue Reading", books: continueReadingBooks)
+                    }
+                    
+                    BookCarouselView(title: appSettings.selectedLanguage == "Portuguese" ? "Para Crianças" : "For Kids", books: filteredBooks.filter { $0.age == "Children" })
+                    
+                    BookCarouselView(title: appSettings.selectedLanguage == "Portuguese" ? "Para Adultos" : "For Adults", books: filteredBooks.filter { $0.age == "Adult" })
                 }
-                .padding(.bottom)
+                .padding(.vertical)
             }
             .background(colorScheme == .dark ? Color.black : Color(UIColor.systemGray6))
-            .ignoresSafeArea(edges: .top)
             .navigationBarHidden(true)
-            .safeAreaInset(edge: .top) {
-                HStack {
-                    Spacer()
-                    Button(action: { showingProfileSelection = true }) {
-                        if userProfileManager.userProfile.selectedProfile == "Children" {
-                            Image("KidsProfile")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 40, height: 40)
-                        } else {
-                            Image(systemName: "person.crop.circle")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 40, height: 40)
-                        }
-                    }
-                    .padding()
-                    .background(Color.black.opacity(0.2))
-                    .clipShape(Circle())
-                    .foregroundColor(.white)
-                }
-                .padding(.trailing)
+            .navigationDestination(for: Book.self) { book in
+                ChapterListView(book: book)
+                    .environmentObject(themeManager)
             }
-            .sheet(isPresented: $showingProfileSelection) {
-                ProfileSelectionView(isPresented: $showingProfileSelection)
-                    .environmentObject(userProfileManager)
+            .navigationDestination(for: Chapter.self) { chapter in
+                if let book = filteredBooks.first(where: { $0.chapterTitles.contains(chapter.title) }) {
+                    ContentView(book: book, chapter: chapter)
+                        .environmentObject(themeManager)
+                }
             }
         }
-        .navigationViewStyle(.stack)
         .onAppear {
-            self.allBooks = BookLoader.loadBooks()
+            Task {
+                self.allBooks = BookLoader.loadBooks()
+            }
         }
     }
 }
 
+
+struct LibraryHeaderView: View {
+    @EnvironmentObject var appSettings: AppSettings
+
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading) {
+                Text(appSettings.selectedLanguage == "Portuguese" ? "Biblioteca" : "Library")
+                    .font(appSettings.dyslexiaFontEnabled ? .custom("OpenDyslexic-Bold", size: 34) : .largeTitle)
+                    .fontWeight(.bold)
+                Text(appSettings.selectedLanguage == "Portuguese" ? "Seus livros em um só lugar" : "Your books in one place")
+                    .font(appSettings.dyslexiaFontEnabled ? .custom("OpenDyslexic-Regular", size: 17) : .headline)
+                    .foregroundColor(.secondary)
+            }
+            Spacer()
+        }
+        .padding(.horizontal)
+    }
+}
+
+struct BookCarouselView: View {
+    let title: String
+    let books: [Book]
+    @EnvironmentObject var appSettings: AppSettings
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 15) {
+            Text(title)
+                .font(appSettings.dyslexiaFontEnabled ? .custom("OpenDyslexic-Bold", size: 22) : .title2)
+                .fontWeight(.bold)
+                .padding(.horizontal)
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 20) {
+                    ForEach(books) { book in
+                        NavigationLink(value: book) {
+                            BookCoverItemView(book: book)
+                        }
+                    }
+                }
+                .padding(.horizontal)
+            }
+        }
+    }
+}
 
 struct FeaturedBookView: View {
     let book: Book
+    @EnvironmentObject var appSettings: AppSettings
 
     var body: some View {
-        NavigationLink(destination: ChapterListView(book: book).toolbar(.hidden, for: .tabBar)) {
-            VStack(alignment: .leading, spacing: 8) {
-                Spacer()
-                Text("FEATURED")
-                    .font(.caption)
-                    .fontWeight(.bold)
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.red.opacity(0.9))
-                    .cornerRadius(6)
-                
-                Text(book.title)
-                    .font(.system(size: 32, weight: .bold, design: .serif))
-                    .foregroundColor(.white)
-                    .shadow(radius: 5)
-                
-                Text(book.author)
-                    .font(.headline)
-                    .foregroundColor(.white.opacity(0.9))
-            }
-            .padding(20)
-            .frame(maxWidth: .infinity, minHeight: 350, alignment: .bottomLeading)
-            .background {
-                Image(book.imageName)
-                    .resizable()
-                    .scaledToFill()
-            }
-            .cornerRadius(12)
-            .clipped()
+        VStack(alignment: .leading, spacing: 8) {
+            Spacer()
+            Text(appSettings.selectedLanguage == "Portuguese" ? "CLÁSSICO" : "CLASSIC")
+                .font(appSettings.dyslexiaFontEnabled ? .custom("OpenDyslexic-Bold", size: 13) : .system(.caption, design: .rounded))
+                .fontWeight(.bold)
+                .foregroundColor(.white)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.blue.opacity(0.9))
+                .cornerRadius(6)
+            Text(book.title)
+                .font(appSettings.dyslexiaFontEnabled ? .custom("OpenDyslexic-Bold", size: 32) : .system(size: 32, weight: .bold, design: .rounded))
+                .foregroundColor(.white)
+                .shadow(radius: 5)
+            
+            Text((appSettings.selectedLanguage == "Portuguese" ? "por " : "by ") + book.author)
+                .font(appSettings.dyslexiaFontEnabled ? .custom("OpenDyslexic-Regular", size: 17) : .system(.headline, design: .rounded))
+                .foregroundColor(.white.opacity(0.9))
         }
-        .buttonStyle(PlainButtonStyle())
-    }
-}
-
-
-struct BookGridView: View {
-    let books: [Book]
-    
-    let columns = [
-        GridItem(.adaptive(minimum: 140, maximum: 180))
-    ]
-
-    var body: some View {
-        LazyVGrid(columns: columns, spacing: 25) {
-            ForEach(books) { book in
-                NavigationLink(destination: ChapterListView(book: book).toolbar(.hidden, for: .tabBar)) {
-                    BookCoverItemView(book: book)
-                }
-            }
+        .padding(20)
+        .frame(maxWidth: .infinity, minHeight: 300, alignment: .bottomLeading)
+        .background {
+            Image(book.imageName)
+                .resizable()
+                .scaledToFill()
         }
+        .cornerRadius(20)
+        .padding(.horizontal)
+        .clipped()
     }
 }
 
 struct BookCoverItemView: View {
     let book: Book
+    @EnvironmentObject var appSettings: AppSettings
 
     var body: some View {
         VStack(alignment: .leading) {
             Image(book.imageName)
                 .resizable()
                 .scaledToFill()
-                .frame(height: 200)
+                .frame(width: 150, height: 220)
                 .background(Color.gray.opacity(0.2))
-                .cornerRadius(8)
+                .cornerRadius(12)
                 .clipped()
-                .shadow(color: .black.opacity(0.2), radius: 5, x: 0, y: 2)
+                .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: 4)
             
             Text(book.title)
-                .font(.headline)
+                .font(appSettings.dyslexiaFontEnabled ? .custom("OpenDyslexic-Bold", size: 17) : .headline)
                 .foregroundColor(.primary)
                 .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
+                .frame(width: 150, alignment: .leading)
             
             Text(book.author)
-                .font(.subheadline)
+                .font(appSettings.dyslexiaFontEnabled ? .custom("OpenDyslexic-Regular", size: 15) : .subheadline)
                 .foregroundColor(.secondary)
                 .lineLimit(1)
+                .frame(width: 150, alignment: .leading)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -179,4 +201,9 @@ struct BookCoverItemView: View {
     LibraryView()
         .environmentObject(AppSettings())
         .environmentObject(UserProfileManager())
+}
+
+#Preview {
+    FeaturedBookView(book: BookLoader.loadBooks().first!)
+        .environmentObject(AppSettings())
 }

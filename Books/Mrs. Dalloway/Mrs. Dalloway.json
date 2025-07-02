@@ -3,5 +3,6 @@
   "author": "Virginia Woolf",
   "imageName": "Mrs.Dalloway",
   "Chapters": ["Mrs. Dalloway"],
-  "Age" : "Adult"
+  "Age" : "Adult",
+  "BookLanguage" : "Portuguese"
 }

@@ -8,8 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		A3DE62D12E12EEEE00C9B256 /* Books in Resources */ = {isa = PBXBuildFile; fileRef = A3DE62D02E12EEEE00C9B256 /* Books */; };
-		A3DE62F72E132D7700C9B256 /* light-switch.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = A3DE62F62E132D7700C9B256 /* light-switch.mp3 */; };
-		A3DE62F92E1330D000C9B256 /* lofi_track.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = A3DE62F82E1330D000C9B256 /* lofi_track.mp3 */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -34,8 +32,6 @@
 		A33299ED2E10471D00689485 /* reeedyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = reeedyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A33299F72E10471D00689485 /* reeedyUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = reeedyUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A3DE62D02E12EEEE00C9B256 /* Books */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Books; sourceTree = "<group>"; };
-		A3DE62F62E132D7700C9B256 /* light-switch.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = "light-switch.mp3"; sourceTree = "<group>"; };
-		A3DE62F82E1330D000C9B256 /* lofi_track.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = lofi_track.mp3; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -89,14 +85,12 @@
 		A33299D52E10471B00689485 = {
 			isa = PBXGroup;
 			children = (
-				A3DE62F62E132D7700C9B256 /* light-switch.mp3 */,
 				A3DE62D02E12EEEE00C9B256 /* Books */,
 				A33299E02E10471B00689485 /* reeedy */,
 				A33299F02E10471D00689485 /* reeedyTests */,
 				A33299FA2E10471D00689485 /* reeedyUITests */,
 				A33299DF2E10471B00689485 /* Products */,
 				A3DE62CC2E12EEDF00C9B256 /* Books */,
-				A3DE62F82E1330D000C9B256 /* lofi_track.mp3 */,
 			);
 			sourceTree = "<group>";
 		};
@@ -231,9 +225,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A3DE62F92E1330D000C9B256 /* lofi_track.mp3 in Resources */,
 				A3DE62D12E12EEEE00C9B256 /* Books in Resources */,
-				A3DE62F72E132D7700C9B256 /* light-switch.mp3 in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -422,6 +414,7 @@
 				DEVELOPMENT_TEAM = 57249C654W;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -472,6 +465,7 @@
 				DEVELOPMENT_TEAM = 57249C654W;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

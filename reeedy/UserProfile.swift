@@ -2,7 +2,6 @@
 import Foundation
 
 struct UserProfile: Codable {
-    var selectedProfile: String?
     var readingHistory: [ReadingProgress]
     
     mutating func addReadingProgress(_ progress: ReadingProgress) {
