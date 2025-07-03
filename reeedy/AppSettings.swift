@@ -20,7 +20,7 @@ enum AppFont: String, CaseIterable, Identifiable {
             default:
                 fontWeight = "-Regular"
             }
-            return .custom(fontName + fontWeight, size: size)
+            return .custom(fontName + fontWeight, size: size * 1.1) // Apply scaling factor
         }
     }
 

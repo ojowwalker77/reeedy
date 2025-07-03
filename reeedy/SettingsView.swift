@@ -8,34 +8,84 @@ struct SettingsView: View {
     var body: some View {
         NavigationView {
             Form {
-                Section(header: Text(settings.selectedLanguage == "Portuguese" ? "Idioma" : "Language")
+                // MARK: - General Settings
+                Section(header: Text(settings.selectedLanguage == "Portuguese" ? "Geral" : "General")
                     .font(settings.selectedFont.font(size: 17, weight: .bold))
                     .padding(.top)
                     .minimumScaleFactor(0.5)
                     .lineLimit(1)) {
+                    
                     LanguagePicker(selectedLanguage: $settings.selectedLanguage)
-                }
 
-                Section(header: Text(settings.selectedLanguage == "Portuguese" ? "Geral" : "General")
-                    .font(settings.selectedFont.font(size: 17, weight: .bold))
-                    .minimumScaleFactor(0.5)
-                    .lineLimit(1)) {
                     Toggle(isOn: $settings.hapticFeedbackEnabled) {
                         Label(settings.selectedLanguage == "Portuguese" ? "Feedback Tátil" : "Haptic Feedback", systemImage: "iphone.gen3.radiowaves.left.and.right")
                     }
                 }
-                
+
+                // MARK: - Reading Settings
+                Section(header: Text(settings.selectedLanguage == "Portuguese" ? "Leitura" : "Reading")
+                    .font(settings.selectedFont.font(size: 17, weight: .bold))
+                    .minimumScaleFactor(0.5)
+                    .lineLimit(1)) {
+                    
+                    VStack(alignment: .leading) {
+                        Text(settings.selectedLanguage == "Portuguese" ? "Tamanho da Fonte: \(Int(settings.fontSize))" : "Font Size: \(Int(settings.fontSize))")
+                            .font(settings.selectedFont.font(size: 17))
+                            .minimumScaleFactor(0.5)
+                            .lineLimit(1)
+                        Slider(value: $settings.fontSize, in: 20...100, step: 1) {
+                            Text("Font Size")
+                        } minimumValueLabel: {
+                            Text("20").font(settings.selectedFont.font(size: 12))
+                        } maximumValueLabel: {
+                            Text("100").font(settings.selectedFont.font(size: 12))
+                        }
+                    }
+                    
+                    VStack(alignment: .leading) {
+                        Text(settings.selectedLanguage == "Portuguese" ? "Velocidade de Leitura: \(String(format: "%.1f", settings.readingSpeed))x" : "Reading Speed: \(String(format: "%.1f", settings.readingSpeed))x")
+                            .font(settings.selectedFont.font(size: 17))
+                            .minimumScaleFactor(0.5)
+                            .lineLimit(1)
+                        Slider(value: $settings.readingSpeed, in: 0.5...2.0, step: 0.1) {
+                            Text("Reading Speed")
+                        } minimumValueLabel: {
+                            Text("0.5x").font(settings.selectedFont.font(size: 12))
+                        } maximumValueLabel: {
+                            Text("2.0x").font(settings.selectedFont.font(size: 12))
+                        }
+                    }
+
+                    Toggle(isOn: $settings.semanticSplittingEnabled) {
+                        Label(settings.selectedLanguage == "Portuguese" ? "Divisão Semântica" : "Semantic Splitting", systemImage: "text.alignleft")
+                    }
+                }
+
+                // MARK: - Accessibility Settings
                 Section(header: Text(settings.selectedLanguage == "Portuguese" ? "Acessibilidade" : "Accessibility")
                     .font(settings.selectedFont.font(size: 17, weight: .bold))
                     .minimumScaleFactor(0.5)
                     .lineLimit(1)) {
+                    
                     Toggle(isOn: $settings.reduceMotion) {
                         Label(settings.selectedLanguage == "Portuguese" ? "Reduzir Movimento" : "Reduce Motion", systemImage: "hare.fill")
                     }
                     Toggle(isOn: $settings.reduceTransparency) {
                         Label(settings.selectedLanguage == "Portuguese" ? "Reduzir Transparência" : "Reduce Transparency", systemImage: "square.grid.3x3.fill")
                     }
+                }
+
+                Section(header: Text(settings.selectedLanguage == "Portuguese" ? "Fontes" : "Fonts")
+                    .font(settings.selectedFont.font(size: 17, weight: .bold))
+                    .minimumScaleFactor(0.5)
+                    .lineLimit(1)) {
                     FontPickerView()
+                }
+
+                Section(header: Text(settings.selectedLanguage == "Portuguese" ? "Temas" : "Themes")
+                    .font(settings.selectedFont.font(size: 17, weight: .bold))
+                    .minimumScaleFactor(0.5)
+                    .lineLimit(1)) {
                     ThemePickerView()
                 }
             }

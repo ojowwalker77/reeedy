@@ -26,4 +26,5 @@ struct Chapter: Identifiable, Codable, Hashable {
     var timedWords: [TimedWord]?
     var lastReadWordIndex: Int?
     var chapterImages: [ChapterImage]? // New property
+    var semanticSegments: [SemanticSegment]?
 }

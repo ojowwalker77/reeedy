@@ -45,7 +45,9 @@ struct FontRow: View {
             .padding()
             .background(isSelected ? Color.accentColor.opacity(0.2) : Color.clear)
             .cornerRadius(8)
+            .frame(maxWidth: .infinity) // Make the HStack fill the width
         }
         .buttonStyle(PlainButtonStyle())
+        .contentShape(Rectangle()) // Ensure the entire row is tappable
     }
 }
