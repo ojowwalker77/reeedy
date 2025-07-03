@@ -4,6 +4,7 @@ struct SettingsView: View {
     @EnvironmentObject var settings: AppSettings
     @EnvironmentObject var themeManager: ThemeManager
     @Environment(\.colorScheme) var colorScheme
+    @AppStorage("isOnboarding") var isOnboarding: Bool = false
 
     var body: some View {
         NavigationView {
@@ -87,6 +88,16 @@ struct SettingsView: View {
                     .minimumScaleFactor(0.5)
                     .lineLimit(1)) {
                     ThemePickerView()
+                }
+
+                // MARK: - Developer Settings
+                Section(header: Text("Developer")
+                    .font(settings.selectedFont.font(size: 17, weight: .bold))
+                    .minimumScaleFactor(0.5)
+                    .lineLimit(1)) {
+                    Button(action: { isOnboarding = true }) {
+                        Label("Restart Onboarding", systemImage: "arrow.triangle.2.circlepath")
+                    }
                 }
             }
             .navigationTitle(settings.selectedLanguage == "Portuguese" ? "Ajustes" : "Settings")
